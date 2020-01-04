@@ -536,18 +536,21 @@ class MCMinDivergenceModel(BaseEstimator, DensityMixin, BaseModel):
         # We allow auxiliary_sampler to be a function or method or simply the
         # .__next__ method of a generator (which, curiously, isn't of type
         # MethodType).
-        assert (isinstance(auxiliary_sampler, (types.FunctionType,
-                                               types.MethodType,
-                                               types.GeneratorType))
-                or (hasattr(auxiliary_sampler, '__name__')
-                    and auxiliary_sampler.__name__ == '__next__'))
 
-        if isinstance(auxiliary_sampler, types.GeneratorType):
-            self.auxiliary_sampler = auxiliary_sampler.__next__
-        else:
-            self.auxiliary_sampler = auxiliary_sampler
+        #### Removed this as we don't use a sampler 
 
-        self.samplegen = feature_sampler(self.features, self.auxiliary_sampler)
+        # assert (isinstance(auxiliary_sampler, (types.FunctionType,
+        #                                        types.MethodType,
+        #                                        types.GeneratorType))
+        #         or (hasattr(auxiliary_sampler, '__name__')
+        #             and auxiliary_sampler.__name__ == '__next__'))
+
+        # if isinstance(auxiliary_sampler, types.GeneratorType):
+        #     self.auxiliary_sampler = auxiliary_sampler.__next__
+        # else:
+        #     self.auxiliary_sampler = auxiliary_sampler
+
+        # self.samplegen = feature_sampler(self.features, self.auxiliary_sampler)
 
         # Number of sample matrices to generate and use to estimate E and logZ
         self.matrixtrials = 1
@@ -583,7 +586,8 @@ class MCMinDivergenceModel(BaseEstimator, DensityMixin, BaseModel):
             self.prior_log_pdf = prior_log_pdf
             # self.priorlogprobs will be set by resample()
 
-        self.resample()
+        # Skip this
+        #self.resample()
 
     def _check_features(self):
         """
@@ -592,6 +596,45 @@ class MCMinDivergenceModel(BaseEstimator, DensityMixin, BaseModel):
         # Ensure the sample matrix has been set
         if not (hasattr(self, 'sample_F') and hasattr(self, 'sample_log_probs')):
             raise AttributeError('first specify a sample feature matrix')
+
+    def set_sample(self, sample_xs, log_q_xs, sample_F):
+        """
+        Alternative to self.resample(), set the samples and feature matrix manually.
+        """
+        self.sample = sample_xs
+        self.sample_log_probs = log_q_xs
+        self.sample_F = sample_F
+
+        # Evaluate the prior log probabilities on the sample (for KL div
+        # minimization)
+        if self.prior_log_pdf is not None:
+            lp = self.prior_log_pdf(self.sample)
+            self.priorlogprobs = np.reshape(lp, len(self.sample))
+
+        # Check whether the number m of features and the dimensionalities are correct
+        m, n = self.sample_F.shape
+        try:
+            # The number of features is defined as the length of
+            # self.params, so first check if it exists:
+            self.params
+        except AttributeError:
+            self.params = np.zeros(m, float)
+        else:
+            if m != len(self.params):
+                raise ValueError("the sample feature generator returned"
+                                  " a feature matrix of incorrect dimensions."
+                                  " The number of rows must equal the number of model parameters.")
+
+        # Check the dimensionality of sample_log_probs is correct. It should be 1d, of length n
+        if not (isinstance(self.sample_log_probs, np.ndarray) and self.sample_log_probs.shape == (n,)):
+            raise ValueError('Your sampler appears to be spitting out logprobs of the wrong dimensionality.')
+
+        if self.verbose >= 3:
+            print("(done)")
+
+        # Now clear the temporary variables that are no longer correct for this
+        # sample
+        self.clearcache()
 
     def resample(self):
         """
