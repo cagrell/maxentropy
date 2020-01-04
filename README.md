@@ -1,3 +1,6 @@
+Fork of [maxentropy](https://github.com/PythonCharmers/maxentropy). The changes made in branch mod_featurematrix is used to specity feature matrix manually, instead of sending feature functions and a scipy sampler to MCMinDivergenceModel. Useful when these are computed faster elsewhere.. 
+
+
 # maxentropy: Maximum entropy and minimum divergence models in Python
 
 ## Purpose
